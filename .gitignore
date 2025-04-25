@@ -1,0 +1,10 @@
+.env
+# Ignora todo dentro de airflow
+airflow/*
+
+# No ignores la carpeta dags
+!airflow/dags/
+
+# Dentro de dags, ignora todo menos archivos .py
+airflow/dags/*
+!airflow/dags/**/*.py
