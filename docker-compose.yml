@@ -8,7 +8,7 @@ services:
       - .env
     volumes:
       - ./airflow:/opt/airflow
-      - shared_data:/shared_data
+      - ./data:/data
     ports:
       - "8080:8080"
     user: "${UID}:${GID}"
@@ -19,13 +19,13 @@ services:
       context: .
       dockerfile: Dockerfile.dbt
     volumes:
-      - ./retodbt:/dbt
+      - ./dbt:/dbt
       - ./dbt/profiles.yml:/root/.dbt/profiles.yml
-      - shared_data:/shared_data
+      - ./data:/data
     working_dir: /dbt
     stdin_open: true
     tty: true
-    entrypoint: ["/bin/sh", "-c", "while [ ! -f /shared_data/youtube_data.csv ]; do echo 'Esperando CSV...'; sleep 2; done; dbt run"]
+    entrypoint: ["/bin/sh", "-c", "while [ ! -f /data/youtube_data.csv ]; do echo 'Esperando CSV...'; sleep 2; done; dbt run"]
 
 
   metaduck:
@@ -39,5 +39,4 @@ services:
       - MB_PLUGINS_DIR=/home/plugins
     volumes:
       - ./data:/data
-volumes:
-  shared_data:
+volumes: {}
