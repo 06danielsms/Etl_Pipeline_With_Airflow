@@ -1,0 +1,15 @@
+FROM ghcr.io/dbt-labs/dbt-core:latest
+
+# Instalar DuckDB y el adaptador dbt-duckdb
+RUN pip install duckdb dbt-duckdb
+
+# Instalar bash
+RUN apt-get update && apt-get install -y bash
+#RUN mkdir -p /root/.dbt
+
+WORKDIR /dbt
+#COPY dbt/profiles.yml /root/.dbt/profiles.yml
+#COPY profiles.yml /root/.dbt/profiles.yml
+COPY . /dbt
+
+CMD ["/bin/bash"]

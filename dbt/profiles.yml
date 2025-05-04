@@ -1,0 +1,8 @@
+retodbt:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: /dbt/shared_data/dev.duckdb # Ruta de la base de datos dentro del contenedor
+      threads: 4
+
