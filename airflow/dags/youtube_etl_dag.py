@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import shutil
+import uuid
 from datetime import datetime, timedelta
 
 import boto3
@@ -9,12 +10,15 @@ import emoji
 import pandas as pd
 from googleapiclient.discovery import build
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, to_date, udf
+from pyspark.sql.functions import (col, current_timestamp, lit, to_date, udf)
 from pyspark.sql.types import (DateType, IntegerType, LongType, StringType,
                                StructField, StructType)
 
 from airflow import DAG
-from airflow.operators.python_operator import PythonOperator
+from airflow.operators.python import PythonOperator
+from airflow.providers.docker.operators.docker import DockerOperator
+from docker.types import Mount
+from airflow.operators.bash import BashOperator
 
 # Define the DAG and its default arguments
 default_args = {
@@ -31,7 +35,7 @@ dag = DAG(
     'youtube_etl_dag',  # DAG identifier
     default_args=default_args,  # Assign default arguments
     description='A simple ETL DAG',  # Description of the DAG
-    schedule_interval=timedelta(days=1),  # Schedule interval: daily
+    schedule=timedelta(days=1),  # Schedule interval: daily
     catchup=False,  # Do not catch up on missed DAG runs
 )
 
@@ -176,6 +180,36 @@ def upload_to_s3(bucket_name, prefix, local_dir_path):
                 s3_client.upload_file(file_path, bucket_name, s3_key)
 
 
+def consolidate_data():
+    """
+    Consolida los datos transformados y agrega columnas de control
+    """
+    spark = SparkSession.builder.appName('YouTubeConsolidate').getOrCreate()
+    current_date = datetime.now().strftime("%Y%m%d")
+    input_path = f'/opt/airflow/Transformed_Youtube_Data_{current_date}'
+    
+    # Leer los datos transformados
+    df = spark.read.csv(input_path, header=True)
+    
+    # Generar un UUID único para el batch_id
+    batch_id = str(uuid.uuid4())
+    
+    # Agregar columnas de control
+    df_with_control = df.withColumn('ingestion_date', current_timestamp()) \
+        .withColumn('batch_id', lit(batch_id))
+      # Guardar el DataFrame consolidado
+    output_path = '/data/youtube_data.csv'
+    
+    # Verificar si el archivo existe para determinar si necesitamos incluir el encabezado
+    header = not os.path.exists(output_path)
+    
+    # Convertir a pandas y guardar en modo append
+    df_with_control.toPandas().to_csv(output_path, 
+                                     mode='a',  # append mode
+                                     header=header,  # solo incluir header si es un archivo nuevo
+                                     index=False)
+
+
 # Define extract task for the DAG
 extract_task = PythonOperator(
     task_id='extract_data_from_youtube_api',
@@ -205,6 +239,58 @@ preprocess_data_pyspark_task = PythonOperator(
 #     dag=dag
 # )
 
-extract_task >> preprocess_data_pyspark_task
+# Define consolidation task for the DAG
+consolidate_data_task = PythonOperator(
+    task_id='consolidate_data',
+    python_callable=consolidate_data,
+    dag=dag,
+)
+
+# Define build DBT image task
+build_dbt_image_task = DockerOperator(
+    task_id='build_dbt_image',
+    api_version='auto',
+    auto_remove='success',
+    command='build -t etl_youtube_dbt:latest -f Dockerfile.dbt .',
+    image='docker:latest',
+    docker_url='unix://var/run/docker.sock',
+    network_mode='bridge',
+    privileged=True,
+    mount_tmp_dir=False,
+    mounts=[
+        Mount(source='/var/run/docker.sock', target='/var/run/docker.sock', type='bind'),
+        Mount(source='/home/satoru/repos/lab/etl-youtube', target='/workspace', type='bind'),
+    ],
+    working_dir='/workspace',
+    dag=dag,
+)
+
+# Define DBT task
+dbt_task = DockerOperator(
+    task_id='run_dbt',
+    image='etl_youtube_dbt:latest',
+    api_version='auto',
+    auto_remove='success',
+    force_pull=False,
+    mount_tmp_dir=False,
+    command=["run",
+             "--profiles-dir", "/root/.dbt",
+             "--project-dir",  "/dbt"],
+    network_mode='bridge',
+    mounts=[
+        Mount(source='/home/satoru/repos/lab/etl-youtube/dbt', target='/dbt', type='bind'),
+        Mount(source='/home/satoru/repos/lab/etl-youtube/dbt/profiles.yml', target='/root/.dbt/profiles.yml', type='bind'),
+        Mount(source='/home/satoru/repos/lab/etl-youtube/data', target='/data', type='bind'),
+    ],
+    working_dir='/dbt',
+    environment={
+        'DBT_PROFILES_DIR': '/root/.dbt',
+        'DBT_PROJECT_DIR': '/dbt'
+    },
+    dag=dag,
+)
+
+# Update task dependencies to include build and DBT
+extract_task >> preprocess_data_pyspark_task >> consolidate_data_task >> build_dbt_image_task >> dbt_task
 
 

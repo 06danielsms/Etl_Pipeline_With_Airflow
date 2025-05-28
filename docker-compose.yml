@@ -1,32 +1,47 @@
-version: '3'
+version: '3.9'
+
 services:
   airflowproject:
     build:
-        context: .
-        dockerfile: Dockerfile.airflow
+      context: .
+      dockerfile: Dockerfile.airflow
     env_file:
       - .env
     volumes:
       - ./airflow:/opt/airflow
       - ./data:/data
+      - ./dbt:/dbt
+      - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "8080:8080"
     user: "${UID}:${GID}"
     command: airflow standalone
+    networks:
+      - etl_youtube_network
 
   dbt:
+    image: etl_youtube_dbt:latest
     build:
       context: .
       dockerfile: Dockerfile.dbt
+    profiles:
+      - dbt
     volumes:
       - ./dbt:/dbt
       - ./dbt/profiles.yml:/root/.dbt/profiles.yml
       - ./data:/data
     working_dir: /dbt
-    stdin_open: true
-    tty: true
-    entrypoint: ["/bin/sh", "-c", "while [ ! -f /data/youtube_data.csv ]; do echo 'Esperando CSV...'; sleep 2; done; dbt run"]
-
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        while [ ! -f /data/youtube_data.csv ]; do
+          echo 'Esperando CSV…'
+          sleep 2
+        done
+        dbt run
+    networks:
+      - etl_youtube_network
 
   metaduck:
     build:
@@ -39,4 +54,9 @@ services:
       - MB_PLUGINS_DIR=/home/plugins
     volumes:
       - ./data:/data
-volumes: {}
+    networks:
+      - etl_youtube_network
+
+networks:
+  etl_youtube_network:
+    driver: bridge

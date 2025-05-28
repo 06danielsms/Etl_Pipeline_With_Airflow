@@ -2,7 +2,7 @@ retodbt:
   target: dev
   outputs:
     dev:
-      type: duckdb
-      path: /data/dev.duckdb # Ruta de la base de datos dentro del contenedor
+      type: duckdb      
+      path: /data/dev.duckdb # Path to database inside container
       threads: 4
 

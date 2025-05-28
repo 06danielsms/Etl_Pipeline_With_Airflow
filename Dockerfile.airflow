@@ -16,4 +16,4 @@ RUN apt-get update && \
 USER airflow
 
 # Install necessary Python packages
-RUN pip install --no-cache-dir pyspark pandas google-api-python-client emoji
+RUN pip install --no-cache-dir pyspark pandas google-api-python-client emoji apache-airflow-providers-docker
