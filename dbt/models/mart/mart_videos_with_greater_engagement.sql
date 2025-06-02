@@ -11,12 +11,13 @@ WITH greater_engagement AS (
         like_count, 
         comment_count, 
         like_ratio, 
-        comment_ratio
+        comment_ratio,
+        date_of_ingestion
     FROM {{ ref('int_calculate_videos_with_greater_engagement') }}
 )
 
 SELECT *
 FROM greater_engagement
 ORDER BY like_ratio DESC, comment_ratio DESC
-LIMIT 10
+--LIMIT 10
 -- Identifica los videos con mejor interacción en relación con su número de vistas.

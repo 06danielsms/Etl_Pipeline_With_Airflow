@@ -9,7 +9,8 @@ WITH join_data AS (
         rw.published_at,
         rw.view_count,
         rw.like_count,
-        rw.comment_count
+        rw.comment_count,
+        ingestion_date
     FROM {{ ref('stg_raw_data') }} rw
     JOIN {{ ref('stg_category_id') }} ct
     ON rw.category_id = ct.id_category

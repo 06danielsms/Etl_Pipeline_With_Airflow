@@ -16,7 +16,8 @@ WITH result AS (
         title,
         published_at,
         like_count,
-        CURRENT_DATE AS date_of_ingestion
+        date_of_ingestion,
+        CURRENT_DATE AS reference_date
     FROM {{ref('int_calculate_top_videos_likes')}}
     {% if is_incremental() %}
     WHERE date_of_ingestion >= (SELECT MAX(date_of_ingestion) FROM {{ this }})

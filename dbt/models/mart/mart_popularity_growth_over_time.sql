@@ -15,7 +15,8 @@ WITH daily_aggregates AS(
         total_views, 
         total_likes, 
         total_comments,
-        CURRENT_DATE AS date_of_ingestion
+        date_of_ingestion,
+        CURRENT_DATE AS reference_date
     FROM {{ ref('int_popularity_growth_over_time') }}
     {% if is_incremental() %}
     WHERE date_of_ingestion >= (SELECT MAX(date_of_ingestion) FROM {{ this }})

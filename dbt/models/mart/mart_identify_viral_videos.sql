@@ -11,6 +11,7 @@
 
 WITH viral_analysis AS (
     SELECT 
+        region_code,
         video_id, 
         title, 
         channel_title, 
@@ -19,7 +20,8 @@ WITH viral_analysis AS (
         comment_count, 
         published_at,
         views_per_day,
-        CURRENT_DATE AS date_of_ingestion
+        date_of_ingestion,
+        CURRENT_DATE AS reference_date
     FROM {{ ref('int_calculate_identify_viral_videos') }}
     {% if is_incremental() %}
     WHERE date_of_ingestion >= (SELECT MAX(date_of_ingestion) FROM {{ this }})
@@ -28,6 +30,7 @@ WITH viral_analysis AS (
 
 SELECT * FROM viral_analysis
 ORDER BY views_per_day DESC
+--LIMIT 10
 
 --promedio de vistas por día desde su fecha de publicación
 -- para detectar videos virales en una región especifica (Colombia) .

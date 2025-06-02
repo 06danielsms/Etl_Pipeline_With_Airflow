@@ -7,7 +7,8 @@ WITH group_data AS (
         published_at,
         like_count,
         category_name,
-        ROW_NUMBER() OVER (PARTITION BY region_code ORDER BY like_count DESC) AS rank
+        ROW_NUMBER() OVER (PARTITION BY region_code ORDER BY like_count DESC) AS rank,
+        CAST(ingestion_date AS DATE) AS date_of_ingestion
     FROM {{ref('int_category_id_data_join')}}
 )
 SELECT *

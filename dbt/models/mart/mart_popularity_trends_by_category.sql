@@ -4,7 +4,7 @@
 -- The model is used to analyze the popularity trends of videos by category.
 {{ config(
     materialized='incremental',
-    unique_key=['category_id', 'date_of_ingestion'],
+    unique_key=['category_id', 'reference_date'],
     on_conflict='update'
 ) }}
 
@@ -18,10 +18,10 @@ WITH data_most_popular_videos AS (
         total_comments, 
         avg_like_ratio, 
         avg_comment_ratio,
-        CURRENT_DATE AS date_of_ingestion
+        CURRENT_DATE AS reference_date
     FROM {{ref('int_calculate_popularity_trends_by_category')}}
     {% if is_incremental() %}
-    WHERE date_of_ingestion >= (SELECT MAX(date_of_ingestion) FROM {{ this }})
+    WHERE reference_date >= (SELECT MAX(reference_date) FROM {{ this }})
     {% endif %}
 )
 
